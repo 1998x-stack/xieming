@@ -1,4 +1,5 @@
 // ==================== Global State ====================
+const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 let config = null;
 let repos = [];
 let filteredRepos = [];
@@ -56,7 +57,9 @@ function toggleTheme() {
 
 function updateThemeIcon(theme) {
     const icon = document.querySelector('#theme-toggle i');
-    icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    if (icon) {
+        icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    }
 }
 
 // ==================== Data Loading ====================
@@ -64,12 +67,12 @@ async function loadConfig() {
     // Use embedded data (loaded from data-config.js)
     if (window.resumeConfig) {
         config = window.resumeConfig;
-        console.log('✅ Config loaded successfully');
+        if (DEBUG) console.log('✅ Config loaded successfully');
         return;
     }
 
     // Fallback: use default config
-    console.warn('⚠️ Using default config - data file not loaded');
+    if (DEBUG) console.warn('⚠️ Using default config - data file not loaded');
     config = getDefaultConfig();
 }
 
@@ -78,12 +81,12 @@ async function loadRepos() {
     if (window.resumeRepos) {
         repos = window.resumeRepos;
         filteredRepos = [...repos];
-        console.log(`✅ Loaded ${repos.length} repositories`);
+        if (DEBUG) console.log(`✅ Loaded ${repos.length} repositories`);
         return;
     }
 
     // Fallback: empty array
-    console.warn('⚠️ No repositories loaded');
+    if (DEBUG) console.warn('⚠️ No repositories loaded');
     repos = [];
     filteredRepos = [];
 }
@@ -173,6 +176,14 @@ function renderSkills() {
 
 function renderSkillCategory(categoryId, items) {
     const container = document.getElementById(categoryId);
+    if (!container) {
+        if (DEBUG) console.warn(`⚠️ Skill category container not found: ${categoryId}`);
+        return;
+    }
+    if (!items || items.length === 0) {
+        container.innerHTML = '<span class="skill-tag" style="color: var(--text-light);">N/A</span>';
+        return;
+    }
     container.innerHTML = items.map(skill =>
         `<span class="skill-tag">${skill}</span>`
     ).join('');
@@ -269,6 +280,10 @@ function renderEducation() {
 
 function renderProjects() {
     const container = document.getElementById('projects-grid');
+    if (!container) {
+        if (DEBUG) console.warn('⚠️ Projects grid container not found');
+        return;
+    }
 
     if (filteredRepos.length === 0) {
         container.innerHTML = '<div class="loading"><i class="fas fa-info-circle"></i><p>No projects found</p></div>';
@@ -303,7 +318,7 @@ function createProjectCard(repo) {
     return `
         <div class="project-card ${isFeatured ? 'featured' : ''}" data-repo="${repo.name}">
             <div class="project-header">
-                <a href="${repo.html_url}" target="_blank" rel="noopener" class="project-name">
+                <a href="${repo.html_url}" target="_blank" rel="noopener noreferrer" class="project-name">
                     <i class="fas fa-folder"></i>
                     ${repo.name}
                     ${isFeatured ? '<i class="fas fa-star" style="color: gold;"></i>' : ''}
@@ -348,7 +363,7 @@ function createProjectCard(repo) {
                         ${language}
                     </span>
                 ` : '<span></span>'}
-                <a href="${repo.html_url}" target="_blank" rel="noopener" class="project-link">
+                <a href="${repo.html_url}" target="_blank" rel="noopener noreferrer" class="project-link">
                     View <i class="fas fa-external-link-alt"></i>
                 </a>
             </div>
@@ -397,10 +412,12 @@ function filterProjects() {
 }
 
 function updateProjectStats() {
+    const countElement = document.getElementById('project-count');
+    if (!countElement) return;
+
     const count = filteredRepos.length;
     const total = repos.length;
-    document.getElementById('project-count').textContent =
-        `Showing ${count} of ${total} projects`;
+    countElement.textContent = `Showing ${count} of ${total} projects`;
 }
 
 function populateCategoryFilter() {
@@ -416,34 +433,6 @@ function populateCategoryFilter() {
     });
 }
 
-// ==================== Event Listeners ====================
-function initEventListeners() {
-    // Theme toggle
-    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
-
-    // Project filters
-    document.getElementById('filter-forks').addEventListener('change', filterProjects);
-    document.getElementById('filter-archived').addEventListener('change', filterProjects);
-    document.getElementById('category-filter').addEventListener('change', filterProjects);
-    document.getElementById('search-filter').addEventListener('input', filterProjects);
-
-    // Populate category filter
-    populateCategoryFilter();
-}
-
-// ==================== Footer Updates ====================
-function updateFooter() {
-    const currentYear = new Date().getFullYear();
-    document.getElementById('current-year').textContent = currentYear;
-
-    const lastUpdated = new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-    document.getElementById('last-updated').textContent = lastUpdated;
-}
-
 // ==================== Helper Functions ====================
 function debounce(func, wait) {
     let timeout;
@@ -457,12 +446,47 @@ function debounce(func, wait) {
     };
 }
 
-// Debounced search
+// Create debounced search function
 const debouncedSearch = debounce(filterProjects, 300);
-document.addEventListener('DOMContentLoaded', () => {
-    const searchInput = document.getElementById('search-filter');
-    if (searchInput) {
-        searchInput.removeEventListener('input', filterProjects);
-        searchInput.addEventListener('input', debouncedSearch);
+
+// ==================== Event Listeners ====================
+function initEventListeners() {
+    // Theme toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
     }
-});
+
+    // Project filters
+    const filterForks = document.getElementById('filter-forks');
+    const filterArchived = document.getElementById('filter-archived');
+    const categoryFilter = document.getElementById('category-filter');
+    const searchFilter = document.getElementById('search-filter');
+
+    if (filterForks) filterForks.addEventListener('change', filterProjects);
+    if (filterArchived) filterArchived.addEventListener('change', filterProjects);
+    if (categoryFilter) categoryFilter.addEventListener('change', filterProjects);
+    if (searchFilter) searchFilter.addEventListener('input', debouncedSearch);
+
+    // Populate category filter
+    populateCategoryFilter();
+}
+
+// ==================== Footer Updates ====================
+function updateFooter() {
+    const currentYear = new Date().getFullYear();
+    const yearElement = document.getElementById('current-year');
+    if (yearElement) {
+        yearElement.textContent = currentYear;
+    }
+
+    const lastUpdated = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    const lastUpdatedElement = document.getElementById('last-updated');
+    if (lastUpdatedElement) {
+        lastUpdatedElement.textContent = lastUpdated;
+    }
+}
